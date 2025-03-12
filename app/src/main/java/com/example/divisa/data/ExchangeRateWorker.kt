@@ -1,30 +1,43 @@
 package com.example.divisa.data
 
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.divisa.network.RetrofitInstance
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import com.example.divisa.data.AppDatabase
+
 
 class ExchangeRateWorker(
-    context: Context,
+    appContext: Context,
     workerParams: WorkerParameters
-) : CoroutineWorker(context, workerParams) {
+) : CoroutineWorker(appContext, workerParams) {
+
+    // Instancia de DAO (Data Access Object) para insertar datos en la base de datos
+    private val dao = AppDatabase.getDatabase(appContext).exchangeRateDao()
 
     override suspend fun doWork(): Result {
+        Log.d("ExchangeRateWorker", "Trabajando para obtener las tasas de cambio")
         return try {
-            // Hacer la solicitud de red
-            val response = RetrofitInstance.retrofitService.getExchangeRates().execute()
+            // Llamada sincrónica con Retrofit en el contexto IO
+            val response = withContext(Dispatchers.IO) {
+                RetrofitInstance.retrofitService.getExchangeRates().execute()
+            }
+            Log.d("ExchangeRateWorker", "Response code: ${response.code()}")
+            Log.d("ExchangeRateWorker", "Response body: ${response.body()}")
 
-            // Verificar si la respuesta es exitosa
             if (response.isSuccessful) {
-                val rates = response.body()?.rates ?: return Result.retry()
-
-                // Guardar los datos en la base de datos
-                val database = AppDatabase.getDatabase(applicationContext)
-                val dao = database.exchangeRateDao()
-
+                val rates = response.body()?.rates
+                if (rates == null) {
+                    Log.e("ExchangeRateWorker", "El body es nulo o no contiene conversion_rates")
+                    return Result.failure()
+                }
+                Log.d("ExchangeRateWorker", "Tasas obtenidas: $rates")
                 rates.forEach { (currency, rate) ->
                     val exchangeRate = ExchangeRate(
                         currency = currency,
@@ -32,14 +45,17 @@ class ExchangeRateWorker(
                         timestamp = System.currentTimeMillis()
                     )
                     dao.insertExchangeRate(exchangeRate)
+                    Log.d("ExchangeRateWorker", "Insertado: $exchangeRate")
                 }
-
                 Result.success()
             } else {
-                Result.retry() // Reintentar si no fue exitoso
+                Log.e("ExchangeRateWorker", "Error al obtener tasas: ${response.errorBody()?.string()}")
+                Result.failure()
             }
         } catch (e: Exception) {
-            Result.retry() // Reintentar si hubo un error
+            Log.e("ExchangeRateWorker", "Error en la solicitud: ${e.message}")
+            Result.failure()
         }
     }
+
 }

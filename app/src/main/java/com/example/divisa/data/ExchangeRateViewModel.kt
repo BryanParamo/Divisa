@@ -1,6 +1,7 @@
 package com.example.divisa.data
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.asLiveData
@@ -12,6 +13,9 @@ class ExchangeRateViewModel(application: Application) : AndroidViewModel(applica
     private val dao = AppDatabase.getDatabase(application).exchangeRateDao()
 
     val exchangeRates: LiveData<List<ExchangeRate>> = flow {
-        emit(dao.getAllExchangeRates())
+        val rates = dao.getAllExchangeRates()
+        Log.d("ExchangeRateViewModel", "Tasas obtenidas: $rates") // Verificar que las tasas estén siendo obtenidas
+        emit(rates)
     }.asLiveData()
 }
+

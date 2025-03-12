@@ -1,19 +1,19 @@
 package com.example.divisa
 
-import android.app.Application
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.divisa.data.ExchangeRate
 import com.example.divisa.data.ExchangeRateViewModel
@@ -21,38 +21,35 @@ import com.example.divisa.data.SyncManager
 import com.example.divisa.ui.theme.DivisaTheme
 
 class MainActivity : ComponentActivity() {
-    private val viewModel: ExchangeRateViewModel by viewModels()
+
+    private val exchangeRateViewModel: ExchangeRateViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        Log.d("MainActivity", "onCreate ejecutado")
 
-        // Iniciar sincronización automática
-        SyncManager.scheduleSync(this)
+        // Programar el Worker para obtener las tasas de cambio
+        SyncManager.scheduleSync(applicationContext)
 
         setContent {
             DivisaTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    ExchangeRateScreen(
-                        viewModel = viewModel,
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                // UI de la app
+                ExchangeRateList(exchangeRateViewModel)
             }
         }
     }
 }
 
 @Composable
-fun ExchangeRateScreen(viewModel: ExchangeRateViewModel, modifier: Modifier = Modifier) {
-    val exchangeRates by viewModel.exchangeRates.observeAsState(emptyList())
+fun ExchangeRateList(viewModel: ExchangeRateViewModel) {
+    val exchangeRates = viewModel.exchangeRates.observeAsState(emptyList())
+    Log.d("MainActivity", "Tasas obtenidas (antes de mostrar): ${exchangeRates.value}")
 
-    Column(modifier = modifier.padding(16.dp)) {
-        Text(text = "Tasas de Cambio", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(8.dp))
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text(text = "Tasas de cambio", style = MaterialTheme.typography.titleLarge)
 
         LazyColumn {
-            items(exchangeRates) { rate ->
+            items(exchangeRates.value) { rate ->
                 ExchangeRateItem(rate)
             }
         }
@@ -61,24 +58,8 @@ fun ExchangeRateScreen(viewModel: ExchangeRateViewModel, modifier: Modifier = Mo
 
 @Composable
 fun ExchangeRateItem(rate: ExchangeRate) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp),
-        shape = MaterialTheme.shapes.medium,
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = "Moneda: ${rate.currency}", style = MaterialTheme.typography.bodyLarge)
-            Text(text = "Tasa: ${rate.rate}", style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun PreviewExchangeRateScreen() {
-    DivisaTheme {
-        ExchangeRateScreen(viewModel = ExchangeRateViewModel(Application()))
+    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+        Text(text = "Moneda: ${rate.currency}")
+        Text(text = "Tasa: ${rate.rate}")
     }
 }
